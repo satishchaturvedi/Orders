@@ -3,8 +3,9 @@ sap.ui.define([
 	"sap/ui/model/json/JSONModel",
 	"../model/formatter",
 	"sap/m/library",
-	"sap/ui/Device"
-], function (BaseController, JSONModel, formatter, mobileLibrary, Device) {
+	"sap/ui/Device",
+	"sap/m/MessageToast"
+], function (BaseController, JSONModel, formatter, mobileLibrary, Device, MessageToast) {
 	"use strict";
 	// shortcut for sap.m.URLHelper
 	var URLHelper = mobileLibrary.URLHelper;
@@ -201,10 +202,43 @@ sap.ui.define([
 				this.getModel("appView").setProperty("/layout", this.getModel("appView").getProperty("/previousLayout"));
 			}
 		},
+		onDelete: function (oEvent) {
+			// delete the dragged item
+			var oItemToDelete = oEvent.getParameter("draggedControl");
+			// delete the selected item from the list - if nothing selected, remove the first item
+			if (!oItemToDelete) {
+				var oList = this.byId("lineItemsList");
+				oItemToDelete = oList.getSelectedItem() || oList.getItems()[0];
+			}
+			// delete the item after user confirmation
+			var sPath = oItemToDelete.getBindingContextPath(),
+				sTitle = oItemToDelete.getBindingContext().getProperty("ProductID");
+			this._confirmDelete(sPath, sTitle);
+		},
+		_confirmDelete: function (sPath, sTitle) {
+			var oResourceBundle = this.getResourceBundle();
+			sap.ui.require(["sap/m/MessageBox"], function (MessageBox) {
+				MessageBox.confirm(oResourceBundle.getText("deleteConfirmationMessage", [sTitle]), {
+					title: oResourceBundle.getText("confirmTitle"),
+					onClose: function (sAction) {
+						if (sAction === "OK") {
+							this.getModel().remove(sPath, {
+								success: function () {
+									MessageToast.show(oResourceBundle.getText("deleteSuccessMessage"));
+								},
+								error: function () {
+									MessageBox.error(oResourceBundle.getText("deleteErrorMessage"));
+								}
+							});
+						}
+					}.bind(this)
+				});
+			}.bind(this));
+		},
 		/**
 		 *@memberOf opensap.Orders.controller.Detail
 		 */
-		action: function (oEvent) {
+			action: function (oEvent) {
 			var bReplace = !Device.system.phone;
 			this.getRouter().navTo("Info", {
 				objectId: (oEvent.getParameter("listItem") || oEvent.getSource()).getBindingContext().getProperty("SalesOrderID"),
